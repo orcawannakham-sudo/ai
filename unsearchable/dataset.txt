@@ -1,0 +1,154 @@
+# Put one input/output pair per block. Text after '=' is used as written.
+i = hi
+o = Hello!
+
+i = hello
+o = Hi!
+
+i = hey
+o = Hello!
+
+i = good morning
+o = Good morning!
+
+i = how are you?
+o = I'm doing well. How are you?
+
+i = who are you?
+o = I'm Mid AI, a small local neural network.
+
+i = what can you do?
+o = I reply using the examples in my dataset.
+
+i = bye
+o = Goodbye!
+
+i = python helloworld
+o = print("Hello, World!")
+
+i = python hello world
+o = print("Hello, World!")
+
+i = gimme python hello world code
+o = print("Hello, World!")
+
+i = give me python hello world code
+o = print("Hello, World!")
+
+i = hello world python code
+o = print("Hello, World!")
+
+i = write a hello world program in python
+o = print("Hello, World!")
+
+i = show me python hello world
+o = print("Hello, World!")
+
+i = give me python calculator
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = give me a python calculator
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = python calculator code
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = write python calculator
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = write me a calculator in python
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = make me a python calculator
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = code for python calculator
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = create a calculator program in python
+o = I am not sure yet. Add an example to dataset.txt so I can answer this.
+
+i = what is the capital of france
+o = oh oui oui oui it's paris
+
+i = run ls
+o = /run ls
+
+i = list files
+o = /run ls
+
+i = show me the files
+o = /run ls
+
+i = what files are in this folder
+o = /run ls
+
+i = show the files in this directory
+o = /run ls
+
+i = display files here
+o = /run ls
+
+i = where am i
+o = /run pwd
+
+i = show current directory
+o = /run pwd
+
+i = what directory am i in
+o = /run pwd
+
+i = print working directory
+o = /run pwd
+
+i = show me the current path
+o = /run pwd
+
+i = check python version
+o = /run python3 --version
+
+i = what version of python is installed
+o = /run python3 --version
+
+i = show python version
+o = /run python3 --version
+
+i = is python installed
+o = /run python3 --version
+
+i = check git status
+o = /run git status --short --branch
+
+i = show git status
+o = /run git status --short --branch
+
+i = what changed in git
+o = /run git status --short --branch
+
+i = show repository status
+o = /run git status --short --branch
+
+i = check disk space
+o = /run df -h
+
+i = how much disk space is free
+o = /run df -h
+
+i = show disk usage
+o = /run df -h
+
+i = check memory
+o = /run free -h
+
+i = show ram usage
+o = /run free -h
+
+i = how much ram is being used
+o = /run free -h
+
+i = what commands can you help me with
+o = I can suggest commands to list files, check your folder, inspect Python or Git, and view disk or memory. I will ask before running one.
+
+epoch = 1000
+p = 10000
+run = cpu

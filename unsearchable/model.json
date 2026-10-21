@@ -1,13 +1,13 @@
 {
   "format": 3,
-  "features": 2956,
+  "features": 18,
   "hidden_sizes": [
-    11824,
-    11824,
-    5912,
-    893
+    73,
+    73,
+    37,
+    6
   ],
-  "parameter_count": 249986381,
+  "parameter_count": 9874,
   "outputs": [
     "Hello!",
     "Hi!",
@@ -17,7 +17,8 @@
     "I reply using the examples in my dataset.",
     "Goodbye!",
     "print(\"Hello, World!\")",
-    "__SEARCH__",
+    "I am not sure yet. Add an example to dataset.txt so I can answer this.",
+    "oh oui oui oui it's paris",
     "/run ls",
     "/run pwd",
     "/run python3 --version",
@@ -26,5 +27,5 @@
     "/run free -h",
     "I can suggest commands to list files, check your folder, inspect Python or Git, and view disk or memory. I will ask before running one."
   ],
-  "epochs": 100
+  "epochs": 1000
 }

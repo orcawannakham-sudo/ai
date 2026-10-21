@@ -36,7 +36,7 @@ usable GPU is missing. If `run` is omitted, the trainer uses CPU mode.
 ## Run Mid
 
 ```sh
-cd ~/mid_neural_net
+cd ~/mid_neural_net/searchable
 python3 runner.py
 ```
 
@@ -70,6 +70,7 @@ and output is capped at 12,000 characters. Press **Ctrl+C** to stop.
 ## Train the custom neural network
 
 ```sh
+cd ~/mid_neural_net/searchable
 python3 trainer.py
 ```
 

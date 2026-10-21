@@ -68,6 +68,9 @@ o = __SEARCH__
 i = create a calculator program in python
 o = __SEARCH__
 
+i = what is the capital of france
+o = oh oui oui oui it's paris
+
 i = run ls
 o = /run ls
 
@@ -146,6 +149,6 @@ o = /run free -h
 i = what commands can you help me with
 o = I can suggest commands to list files, check your folder, inspect Python or Git, and view disk or memory. I will ask before running one.
 
-epoch = 100
+epoch = 5
 p = 250M
 run = cpu

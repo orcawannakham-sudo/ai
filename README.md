@@ -1,6 +1,5 @@
-# ai
-my own neron network ai
+# Mid AI models
 
-## Mid AI neural network
-
-The text trainer and runner are in [`mid_neural_net/`](mid_neural_net/README.md).
+- [`searchable/`](searchable/README.md) contains the current model with web search.
+- [`unsearchable/`](unsearchable/README.md) contains a separate model that only
+  returns the highest-confidence answer learned from its dataset.

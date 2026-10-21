@@ -106,7 +106,7 @@ def main() -> None:
         return
 
     try:
-        examples, _, _ = load_dataset(APP_DIR / "dataset.txt")
+        examples, _, _, _ = load_dataset(APP_DIR / "dataset.txt")
         feature_count = int(model.get("features", 2048))
         training_words = [
             set(re.findall(r"\w+", example["input"].casefold())) for example in examples

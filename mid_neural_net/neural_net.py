@@ -114,23 +114,158 @@ def _probabilities(logits: np.ndarray) -> np.ndarray:
     return exp_logits / exp_logits.sum(axis=1, keepdims=True)
 
 
+def _torch_gpu_runtime():
+    """Load a PyTorch CUDA/ROCm runtime without making it a CPU dependency."""
+    try:
+        import torch
+    except (ImportError, OSError) as error:
+        raise ValueError(
+            "GPU training requires a PyTorch build compatible with your GPU and driver."
+        ) from error
+    if not torch.cuda.is_available():
+        raise ValueError(
+            "GPU training was requested, but PyTorch cannot access a supported GPU."
+        )
+    return torch, torch.device("cuda:0")
+
+
+def gpu_device_info() -> tuple[str, int, int]:
+    """Return the selected GPU name and its currently free and total memory."""
+    torch, device = _torch_gpu_runtime()
+    try:
+        free_memory, total_memory = torch.cuda.mem_get_info(device)
+        name = torch.cuda.get_device_name(device)
+    except (RuntimeError, AssertionError) as error:
+        raise ValueError(f"Could not read GPU information: {error}") from error
+    return name, int(free_memory), int(total_memory)
+
+
+def _train_gpu(
+    examples: list[dict[str, str]],
+    epochs: int,
+    progress: Callable[[int, int], None] | None,
+    outputs: list[str],
+    features: int,
+    hidden_sizes: tuple[int, ...],
+    parameter_count: int,
+) -> tuple[dict[str, object], float, float]:
+    """Train on the first visible CUDA-compatible GPU and return NumPy weights."""
+    torch, device = _torch_gpu_runtime()
+    output_ids = {output: index for index, output in enumerate(outputs)}
+    x_np = np.stack([vectorize(row["input"], features) for row in examples])
+    y_np = np.asarray([output_ids[row["output"]] for row in examples], dtype=np.int64)
+    x = torch.from_numpy(x_np).to(device=device)
+    y = torch.from_numpy(y_np).to(device=device)
+    n_samples = len(examples)
+
+    rng = torch.Generator(device=device)
+    rng.manual_seed(2026)
+    layer_sizes = (features, *hidden_sizes, len(outputs))
+    weights = [
+        torch.randn((left, right), generator=rng, device=device, dtype=torch.float32)
+        .mul_(np.sqrt(2 / left))
+        for left, right in zip(layer_sizes, layer_sizes[1:])
+    ]
+    biases = [torch.zeros(size, device=device, dtype=torch.float32) for size in layer_sizes[1:]]
+    params = [*weights, *biases]
+    moments = [torch.zeros_like(param) for param in params]
+    variances = [torch.zeros_like(param) for param in params]
+    beta1, beta2, learning_rate = 0.9, 0.999, 0.01
+    sample_rows = torch.arange(n_samples, device=device)
+
+    for step in range(1, epochs + 1):
+        activations = [x]
+        preactivations = []
+        for index, (weight, bias) in enumerate(zip(weights, biases)):
+            z = activations[-1] @ weight + bias
+            preactivations.append(z)
+            activations.append(torch.relu(z) if index < len(weights) - 1 else z)
+
+        logits = activations[-1]
+        exp_logits = torch.exp(logits - logits.max(dim=1, keepdim=True).values)
+        probabilities = exp_logits / exp_logits.sum(dim=1, keepdim=True)
+        delta = probabilities.clone()
+        delta[sample_rows, y] -= 1
+        delta /= n_samples
+
+        grad_weights = [None] * len(weights)
+        grad_biases = [None] * len(biases)
+        for layer_index in range(len(weights) - 1, -1, -1):
+            grad_weights[layer_index] = activations[layer_index].T @ delta
+            grad_biases[layer_index] = delta.sum(dim=0)
+            if layer_index:
+                delta = (delta @ weights[layer_index].T) * (
+                    preactivations[layer_index - 1] > 0
+                )
+
+        gradients = [*grad_weights, *grad_biases]
+        for index, (param, grad) in enumerate(zip(params, gradients)):
+            moments[index].mul_(beta1).add_(grad, alpha=1 - beta1)
+            variances[index].mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
+            moment_hat = moments[index] / (1 - beta1**step)
+            variance_hat = variances[index] / (1 - beta2**step)
+            denominator = variance_hat.sqrt().add_(1e-8)
+            param.addcdiv_(moment_hat, denominator, value=-learning_rate)
+
+        if progress is not None:
+            torch.cuda.synchronize(device)
+            progress(step, epochs)
+
+    activations = [x]
+    for index, (weight, bias) in enumerate(zip(weights, biases)):
+        z = activations[-1] @ weight + bias
+        activations.append(torch.relu(z) if index < len(weights) - 1 else z)
+    logits = activations[-1]
+    exp_logits = torch.exp(logits - logits.max(dim=1, keepdim=True).values)
+    probabilities = exp_logits / exp_logits.sum(dim=1, keepdim=True)
+    correct_probabilities = probabilities[sample_rows, y]
+    loss = float(-torch.log(torch.clamp(correct_probabilities, min=1e-12)).mean().item())
+    accuracy = float((probabilities.argmax(dim=1) == y).float().mean().item())
+
+    model: dict[str, object] = {
+        "outputs": outputs,
+        "weights": [weight.detach().cpu().numpy().copy() for weight in weights],
+        "biases": [bias.detach().cpu().numpy().copy() for bias in biases],
+        "features": features,
+        "hidden_sizes": list(hidden_sizes),
+        "parameter_count": parameter_count,
+        "epochs": epochs,
+    }
+    return model, loss, accuracy
+
+
 def train(
     examples: list[dict[str, str]],
     epochs: int,
     progress: Callable[[int, int], None] | None = None,
     target_parameters: int = DEFAULT_PARAMETER_COUNT,
+    run_mode: str = "cpu",
 ) -> tuple[dict[str, object], float, float]:
-    """Train a response-class network sized to the requested parameter budget."""
+    """Train with NumPy on CPU or optional PyTorch on a CUDA-compatible GPU."""
     if not examples:
         raise ValueError("No input/output examples were found in dataset.txt.")
     if epochs < 1:
         raise ValueError("Epoch count must be a positive integer.")
+    run_mode = run_mode.casefold()
+    if run_mode not in {"cpu", "gpu"}:
+        raise ValueError("Training run mode must be 'cpu' or 'gpu'.")
 
     outputs = list(dict.fromkeys(row["output"] for row in examples))
-    output_ids = {output: index for index, output in enumerate(outputs)}
     features, hidden_sizes, parameter_count = architecture_for_parameters(
         target_parameters, len(outputs)
     )
+    if run_mode == "gpu":
+        return _train_gpu(
+            examples,
+            epochs,
+            progress,
+            outputs,
+            features,
+            hidden_sizes,
+            parameter_count,
+        )
+
+    output_ids = {output: index for index, output in enumerate(outputs)}
     x = np.stack([vectorize(row["input"], features) for row in examples])
     y = np.asarray([output_ids[row["output"]] for row in examples], dtype=np.int64)
     n_samples = len(examples)

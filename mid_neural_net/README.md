@@ -17,6 +17,7 @@ o = I'm doing well.
 
 epoch = 1000
 p = 120M
+run = cpu
 ```
 
 The trainer also accepts an `epoch = ...` line after individual pairs; the last
@@ -25,7 +26,12 @@ first `=` is treated as the value.
 
 Set `p` below `epoch` to choose the network's parameter budget. Values may be a
 plain count (`200`) or use `K`, `M`, or `B` suffixes (`120M`, `1B`). The trainer
-prints the actual size it builds and checks the available memory before training.
+prints the actual size it builds and checks available memory before training.
+Set `run = cpu` for NumPy CPU training, or `run = gpu` to use a supported GPU.
+GPU training needs a PyTorch build compatible with the installed GPU and driver;
+the GPU mode uses PyTorch's CUDA interface, including for ROCm-enabled builds.
+GPU mode reports an error instead of silently switching to CPU if PyTorch or a
+usable GPU is missing. If `run` is omitted, the trainer uses CPU mode.
 
 ## Run Mid
 
@@ -68,9 +74,12 @@ python3 trainer.py
 ```
 
 This trains a four-hidden-layer classifier sized to `p` and saves `model.npz`
-and `model.json`. `epoch` controls how many full training passes it makes. The
-trainer reports the actual parameter count because the nearest smaller network
-shape is used to stay within the requested budget. The runner only loads saved
-weights; it does not start training when launched. Raw search results are not
-fed into training automatically. `__SEARCH__` is a learned action class: when
-the NN predicts it, the runner searches using the user's input.
+and `model.json`. `run = cpu` selects the existing NumPy trainer; `run = gpu`
+selects the optional PyTorch GPU trainer. Both save weights the same way, so the
+runner can load either model. `epoch` controls how many full training passes it
+makes. The trainer reports the actual parameter count because the nearest
+smaller network shape is used to stay within the requested budget. The runner
+only loads saved weights; it does not start training when launched. Raw search
+results are not fed into training automatically. `__SEARCH__` is a learned
+action class: when the NN predicts it, the runner searches using the user's
+input.

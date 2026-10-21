@@ -147,4 +147,5 @@ i = what commands can you help me with
 o = I can suggest commands to list files, check your folder, inspect Python or Git, and view disk or memory. I will ask before running one.
 
 epoch = 100
-p = 120M
+p = 250M
+run = cpu

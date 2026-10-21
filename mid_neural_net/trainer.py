@@ -11,6 +11,7 @@ from pathlib import Path
 from neural_net import (
     DEFAULT_PARAMETER_COUNT,
     architecture_for_parameters,
+    gpu_device_info,
     save_model,
     train,
 )
@@ -37,7 +38,7 @@ def parse_parameter_count(value: str) -> int:
 
 def load_dataset(
     path: Path = DATASET_FILE,
-) -> tuple[list[dict[str, str]], int, int]:
+) -> tuple[list[dict[str, str]], int, int, str]:
     if not path.is_file():
         raise FileNotFoundError(f"Dataset file not found: {path}")
 
@@ -46,6 +47,7 @@ def load_dataset(
     current_output: str | None = None
     epochs: int | None = None
     parameter_count: int | None = None
+    run_mode: str | None = None
 
     def finish_pair(line_number: int) -> None:
         nonlocal current_input, current_output
@@ -63,7 +65,7 @@ def load_dataset(
             continue
         if "=" not in line:
             raise ValueError(
-                f"Line {line_number}: expected 'i = ...', 'o = ...', 'epoch = ...', or 'p = ...'."
+                f"Line {line_number}: expected 'i = ...', 'o = ...', 'epoch = ...', 'p = ...', or 'run = cpu/gpu'."
             )
 
         key, value = (part.strip() for part in line.split("=", 1))
@@ -95,8 +97,13 @@ def load_dataset(
                 parameter_count = parse_parameter_count(value)
             except ValueError as error:
                 raise ValueError(f"Line {line_number}: invalid p value; {error}.") from error
+        elif key == "run":
+            finish_pair(line_number)
+            run_mode = value.casefold()
+            if run_mode not in {"cpu", "gpu"}:
+                raise ValueError(f"Line {line_number}: run must be either 'cpu' or 'gpu'.")
         else:
-            raise ValueError(f"Line {line_number}: unknown field '{key}'; use i, o, epoch, or p.")
+            raise ValueError(f"Line {line_number}: unknown field '{key}'; use i, o, epoch, p, or run.")
 
     finish_pair(len(path.read_text(encoding="utf-8").splitlines()) + 1)
     if not examples:
@@ -105,7 +112,9 @@ def load_dataset(
         raise ValueError("Add a final line such as 'epoch = 1000' to dataset.txt.")
     if parameter_count is None:
         parameter_count = DEFAULT_PARAMETER_COUNT
-    return examples, epochs, parameter_count
+    if run_mode is None:
+        run_mode = "cpu"
+    return examples, epochs, parameter_count, run_mode
 
 
 def available_memory_bytes() -> int | None:
@@ -119,25 +128,38 @@ def available_memory_bytes() -> int | None:
 
 
 def main() -> None:
-    examples, epochs, target_parameters = load_dataset()
+    examples, epochs, target_parameters, run_mode = load_dataset()
     output_count = len({row["output"] for row in examples})
     features, hidden_sizes, parameter_count = architecture_for_parameters(
         target_parameters, output_count
     )
     layer_sizes = (features, *hidden_sizes, output_count)
     estimated_memory = parameter_count * 32 + 512 * 1024**2
-    available_memory = available_memory_bytes()
     print(f"Loaded {len(examples)} input/output pair(s) from {DATASET_FILE.name}.")
     print(f"Network: {' → '.join(map(str, layer_sizes[:-1]))} → {output_count} output class(es)")
     print(f"Requested parameters: {target_parameters:,}")
     print(f"Actual parameters: {parameter_count:,}")
     print(f"Estimated training memory: about {estimated_memory / 1024**3:.1f} GiB")
+    if run_mode == "gpu":
+        gpu_name, available_memory, total_memory = gpu_device_info()
+        print(f"Training device: GPU — {gpu_name}")
+        print(
+            "Available GPU memory: about "
+            f"{available_memory / 1024**3:.1f} GiB free / {total_memory / 1024**3:.1f} GiB total"
+        )
+        memory_kind = "GPU memory"
+    else:
+        print("Training device: CPU (NumPy)")
+        available_memory = available_memory_bytes()
+        memory_kind = "RAM"
+        if available_memory is not None:
+            print(f"Available RAM: about {available_memory / 1024**3:.1f} GiB")
+
     if available_memory is not None:
-        print(f"Available memory: about {available_memory / 1024**3:.1f} GiB")
         if estimated_memory > available_memory:
             raise ValueError(
                 "This model is too large for the currently available memory. "
-                "Lower the p value in dataset.txt or free memory, then try again."
+                f"Lower p in dataset.txt or make more {memory_kind} available, then try again."
             )
     print(f"Training the four-hidden-layer network for {epochs} epoch(s)...")
 
@@ -150,6 +172,7 @@ def main() -> None:
         epochs,
         progress=show_progress,
         target_parameters=target_parameters,
+        run_mode=run_mode,
     )
     print()
     save_model(model, APP_DIR)

@@ -49,8 +49,9 @@ code blocks it can extract before the links. It displays source code as found; i
 does not generate or execute that code.
 
 `/run your command` shows the parsed command and asks you to confirm before
-running it without a shell; commands time out after 30 seconds and output is
-capped at 12,000 characters. Press **Ctrl+C** to stop.
+running it without a shell. The same confirmation is required when the NN
+predicts a `/run ...` response. Commands time out after 30 seconds and output
+is capped at 12,000 characters. Press **Ctrl+C** to stop.
 
 ## Train the custom neural network
 

@@ -68,4 +68,7 @@ o = __SEARCH__
 i = create a calculator program in python
 o = __SEARCH__
 
-epoch =100
+i = run ls
+o = /run ls
+
+epoch = 1000

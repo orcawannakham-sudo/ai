@@ -90,7 +90,7 @@ def print_help() -> None:
     print("Type a message and the local NN will choose a reply from its dataset.")
     print("Inputs unlike the training examples automatically search the web.")
     print("/search QUERY  Search the web and show source snippets")
-    print("/run COMMAND   Review and run a command you entered")
+    print("/run COMMAND   Review and run a command")
     print("/help          Show this help")
     print("Press Ctrl+C to stop.")
 
@@ -170,6 +170,11 @@ def main() -> None:
                 except (RuntimeError, ValueError) as error:
                     print(f"Search failed: {error}")
                     print(f"NN fallback: {reply} (score {score:.1%})")
+                print()
+                continue
+            if reply.startswith("/run "):
+                print("The NN suggested a command; review it before running:")
+                run_command(reply[len("/run ") :])
                 print()
                 continue
             print(f"Output: {reply}")

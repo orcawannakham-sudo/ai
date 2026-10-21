@@ -6,7 +6,7 @@ reply texts learned from `dataset.txt`.
 
 ## Dataset format
 
-Add as many `i` / `o` pairs as you like. Put the epoch count on the final line:
+Add `i` / `o` pairs, then finish with the training settings:
 
 ```text
 i = hi
@@ -16,11 +16,16 @@ i = how are you?
 o = I'm doing well.
 
 epoch = 1000
+p = 120M
 ```
 
 The trainer also accepts an `epoch = ...` line after individual pairs; the last
 epoch value in the file is used for training the whole dataset. Text after the
 first `=` is treated as the value.
+
+Set `p` below `epoch` to choose the network's parameter budget. Values may be a
+plain count (`200`) or use `K`, `M`, or `B` suffixes (`120M`, `1B`). The trainer
+prints the actual size it builds and checks the available memory before training.
 
 ## Run Mid
 
@@ -36,8 +41,9 @@ does not write new sentences. Its displayed NN score is the classifier's softmax
 score, not a calibrated measure that the answer is correct.
 
 If fewer than 80% of the input's words appear together in any one training input,
-or the NN score is below 80%, the runner automatically searches the web and prints
-the results and source URLs. It tries DuckDuckGo's HTML and Lite pages, then Bing's
+the NN score is below 80%, or its feature-vector similarity to every training
+input is below 30%, the runner automatically searches the web and prints the
+results and source URLs. It tries DuckDuckGo's HTML and Lite pages, then Bing's
 RSS results if those pages have no readable links. Search results are shown
 directly; no second chat model is used to summarize them, and they are not
 automatically added to training data. You can also use `/search your query` to
@@ -50,8 +56,10 @@ does not generate or execute that code.
 
 `/run your command` shows the parsed command and asks you to confirm before
 running it without a shell. The same confirmation is required when the NN
-predicts a `/run ...` response. Commands time out after 30 seconds and output
-is capped at 12,000 characters. Press **Ctrl+C** to stop.
+predicts a `/run ...` response. The included training examples let it suggest
+read-only commands for listing files, checking the current directory, Python
+version, Git status, disk space, and memory. Commands time out after 30 seconds
+and output is capped at 12,000 characters. Press **Ctrl+C** to stop.
 
 ## Train the custom neural network
 
@@ -59,12 +67,10 @@ is capped at 12,000 characters. Press **Ctrl+C** to stop.
 python3 trainer.py
 ```
 
-This trains the four-hidden-layer classifier (8192, 8192, 4096, and 619 neurons)
-and saves `model.npz` and `model.json`. With the current nine distinct dataset
-responses, it has 120,002,615 trainable parameters. `epoch` controls how many
-full training passes it makes. The Hello World code reply is a learned output
-class with several matching prompts in `dataset.txt`; adding other code replies
-also requires training. The runner only loads saved weights; it does not start
-training when launched. Raw search results are not fed into training
-automatically. `__SEARCH__` is a learned action class: when the NN predicts it,
-the runner searches using the user's input.
+This trains a four-hidden-layer classifier sized to `p` and saves `model.npz`
+and `model.json`. `epoch` controls how many full training passes it makes. The
+trainer reports the actual parameter count because the nearest smaller network
+shape is used to stay within the requested budget. The runner only loads saved
+weights; it does not start training when launched. Raw search results are not
+fed into training automatically. `__SEARCH__` is a learned action class: when
+the NN predicts it, the runner searches using the user's input.

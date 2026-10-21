@@ -71,4 +71,80 @@ o = __SEARCH__
 i = run ls
 o = /run ls
 
-epoch = 1000
+i = list files
+o = /run ls
+
+i = show me the files
+o = /run ls
+
+i = what files are in this folder
+o = /run ls
+
+i = show the files in this directory
+o = /run ls
+
+i = display files here
+o = /run ls
+
+i = where am i
+o = /run pwd
+
+i = show current directory
+o = /run pwd
+
+i = what directory am i in
+o = /run pwd
+
+i = print working directory
+o = /run pwd
+
+i = show me the current path
+o = /run pwd
+
+i = check python version
+o = /run python3 --version
+
+i = what version of python is installed
+o = /run python3 --version
+
+i = show python version
+o = /run python3 --version
+
+i = is python installed
+o = /run python3 --version
+
+i = check git status
+o = /run git status --short --branch
+
+i = show git status
+o = /run git status --short --branch
+
+i = what changed in git
+o = /run git status --short --branch
+
+i = show repository status
+o = /run git status --short --branch
+
+i = check disk space
+o = /run df -h
+
+i = how much disk space is free
+o = /run df -h
+
+i = show disk usage
+o = /run df -h
+
+i = check memory
+o = /run free -h
+
+i = show ram usage
+o = /run free -h
+
+i = how much ram is being used
+o = /run free -h
+
+i = what commands can you help me with
+o = I can suggest commands to list files, check your folder, inspect Python or Git, and view disk or memory. I will ask before running one.
+
+epoch = 100
+p = 120M

@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from internet_search import search_web
-from neural_net import load_model, predict
+from neural_net import load_model, predict, vectorize
 from trainer import load_dataset
 
 
@@ -17,6 +17,7 @@ MAX_COMMAND_LENGTH = 2_000
 MAX_ARGUMENTS = 64
 MAX_OUTPUT_LENGTH = 12_000
 MIN_INPUT_WORD_COVERAGE = 0.80
+MIN_INPUT_SIMILARITY = 0.30
 # Softmax scores are not calibrated; search unless the model is fairly sure.
 MIN_NN_SCORE = 0.80
 SEARCH_ACTION = "__SEARCH__"
@@ -91,6 +92,7 @@ def print_help() -> None:
     print("Inputs unlike the training examples automatically search the web.")
     print("/search QUERY  Search the web and show source snippets")
     print("/run COMMAND   Review and run a command")
+    print("Ask for common system info or file-list commands in plain language.")
     print("/help          Show this help")
     print("Press Ctrl+C to stop.")
 
@@ -104,12 +106,17 @@ def main() -> None:
         return
 
     try:
-        examples, _ = load_dataset(APP_DIR / "dataset.txt")
+        examples, _, _ = load_dataset(APP_DIR / "dataset.txt")
+        feature_count = int(model.get("features", 2048))
         training_words = [
             set(re.findall(r"\w+", example["input"].casefold())) for example in examples
         ]
+        training_vectors = [
+            vectorize(example["input"], feature_count) for example in examples
+        ]
     except (FileNotFoundError, ValueError) as error:
         training_words = []
+        training_vectors = []
         print(f"Warning: cannot read training inputs; automatic search fallback is off: {error}")
 
     print("Mid AI neural-network runner. Type a message; press Ctrl+C to stop.")
@@ -138,11 +145,17 @@ def main() -> None:
 
             reply, score = predict(model, text)
             word_coverage = None
+            input_similarity = None
             input_words = set(re.findall(r"\w+", text.casefold()))
             if training_words and input_words:
                 word_coverage = max(
                     len(input_words & example_words) / len(input_words)
                     for example_words in training_words
+                )
+            if training_vectors:
+                input_vector = vectorize(text, int(model.get("features", 2048)))
+                input_similarity = max(
+                    float(example_vector @ input_vector) for example_vector in training_vectors
                 )
             if reply == SEARCH_ACTION:
                 print("Your NN chose to search the web.")
@@ -153,17 +166,28 @@ def main() -> None:
                 print()
                 continue
 
-            if score < MIN_NN_SCORE or (
-                word_coverage is not None and word_coverage < MIN_INPUT_WORD_COVERAGE
-            ):
-                details = (
-                    f"training-word coverage {word_coverage:.1%}, NN score {score:.1%}"
-                    if word_coverage is not None
-                    else f"NN score {score:.1%}"
+            is_command_reply = reply.startswith("/run ")
+            if (
+                score < MIN_NN_SCORE
+                or (
+                    not is_command_reply
+                    and word_coverage is not None
+                    and word_coverage < MIN_INPUT_WORD_COVERAGE
                 )
+                or (
+                    not is_command_reply
+                    and input_similarity is not None
+                    and input_similarity < MIN_INPUT_SIMILARITY
+                )
+            ):
+                details = [f"NN score {score:.1%}"]
+                if word_coverage is not None:
+                    details.append(f"training-word coverage {word_coverage:.1%}")
+                if input_similarity is not None:
+                    details.append(f"nearest-example similarity {input_similarity:.1%}")
                 print(
                     "Input looks unfamiliar to the NN; searching the web. "
-                    f"({details})"
+                    f"({', '.join(details)})"
                 )
                 try:
                     print(search_web(text))
@@ -172,7 +196,7 @@ def main() -> None:
                     print(f"NN fallback: {reply} (score {score:.1%})")
                 print()
                 continue
-            if reply.startswith("/run "):
+            if is_command_reply:
                 print("The NN suggested a command; review it before running:")
                 run_command(reply[len("/run ") :])
                 print()

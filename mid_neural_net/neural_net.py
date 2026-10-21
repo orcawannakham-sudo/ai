@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 from collections.abc import Callable
@@ -14,23 +15,66 @@ import numpy as np
 
 FEATURES = 2048
 HIDDEN_SIZES = (8192, 8192, 4096, 619)
+DEFAULT_PARAMETER_COUNT = 120_000_000
 MODEL_FORMAT = 3
 TOKEN_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
 
-def _feature_index(name: str) -> int:
+def count_parameters(features: int, hidden_sizes: tuple[int, ...], outputs: int) -> int:
+    layer_sizes = (features, *hidden_sizes, outputs)
+    return sum(left * right + right for left, right in zip(layer_sizes, layer_sizes[1:]))
+
+
+def architecture_for_parameters(
+    target_parameters: int, outputs: int
+) -> tuple[int, tuple[int, ...], int]:
+    """Scale the default four-hidden-layer shape to fit a parameter budget."""
+    if target_parameters < 1 or outputs < 1:
+        raise ValueError("Parameter count and output count must be positive.")
+
+    minimum_hidden = (1,) * len(HIDDEN_SIZES)
+    minimum = count_parameters(1, minimum_hidden, outputs)
+    if target_parameters < minimum:
+        raise ValueError(
+            f"p is too small for {outputs} response classes; at least {minimum} parameters are needed."
+        )
+
+    base_count = count_parameters(FEATURES, HIDDEN_SIZES, outputs)
+    high = max(1.0, math.sqrt(target_parameters / base_count) * 2)
+    low = 0.0
+    best_features = 1
+    best_hidden = minimum_hidden
+    best_count = minimum
+
+    for _ in range(80):
+        scale = (low + high) / 2
+        features = max(1, round(FEATURES * scale))
+        hidden = tuple(max(1, round(size * scale)) for size in HIDDEN_SIZES)
+        actual = count_parameters(features, hidden, outputs)
+        if actual <= target_parameters:
+            low = scale
+            best_features, best_hidden, best_count = features, hidden, actual
+        else:
+            high = scale
+
+    return best_features, best_hidden, best_count
+
+
+def _feature_index(name: str, feature_count: int) -> int:
     digest = hashlib.blake2b(name.encode("utf-8"), digest_size=8).digest()
-    return int.from_bytes(digest, "little") % FEATURES
+    return int.from_bytes(digest, "little") % feature_count
 
 
-def vectorize(text: str) -> np.ndarray:
+def vectorize(text: str, feature_count: int = FEATURES) -> np.ndarray:
     """Build a normalized hashed bag of word, phrase, and character features."""
+    if feature_count < 1:
+        raise ValueError("Feature count must be positive.")
     tokens = TOKEN_RE.findall(text.casefold())
     normalized = " ".join(tokens)
     counts: dict[int, float] = {}
 
     def add(feature: str, weight: float = 1.0) -> None:
-        index = _feature_index(feature)
+        index = _feature_index(feature, feature_count)
         counts[index] = counts.get(index, 0.0) + weight
 
     for token in tokens:
@@ -43,7 +87,7 @@ def vectorize(text: str) -> np.ndarray:
         for start in range(max(0, len(padded) - size + 1)):
             add(f"char{size}:" + padded[start : start + size], 0.35)
 
-    result = np.zeros(FEATURES, dtype=np.float32)
+    result = np.zeros(feature_count, dtype=np.float32)
     for index, count in counts.items():
         result[index] = count
     norm = float(np.linalg.norm(result))
@@ -74,8 +118,9 @@ def train(
     examples: list[dict[str, str]],
     epochs: int,
     progress: Callable[[int, int], None] | None = None,
+    target_parameters: int = DEFAULT_PARAMETER_COUNT,
 ) -> tuple[dict[str, object], float, float]:
-    """Train a 2048 → 8192 → 8192 → 4096 → 619 → response-class network."""
+    """Train a response-class network sized to the requested parameter budget."""
     if not examples:
         raise ValueError("No input/output examples were found in dataset.txt.")
     if epochs < 1:
@@ -83,12 +128,15 @@ def train(
 
     outputs = list(dict.fromkeys(row["output"] for row in examples))
     output_ids = {output: index for index, output in enumerate(outputs)}
-    x = np.stack([vectorize(row["input"]) for row in examples])
+    features, hidden_sizes, parameter_count = architecture_for_parameters(
+        target_parameters, len(outputs)
+    )
+    x = np.stack([vectorize(row["input"], features) for row in examples])
     y = np.asarray([output_ids[row["output"]] for row in examples], dtype=np.int64)
     n_samples = len(examples)
 
     rng = np.random.default_rng(2026)
-    layer_sizes = (FEATURES, *HIDDEN_SIZES, len(outputs))
+    layer_sizes = (features, *hidden_sizes, len(outputs))
     weights = [
         (rng.standard_normal((left, right)) * np.sqrt(2 / left)).astype(np.float32)
         for left, right in zip(layer_sizes, layer_sizes[1:])
@@ -133,8 +181,9 @@ def train(
         "outputs": outputs,
         "weights": weights,
         "biases": biases,
-        "features": FEATURES,
-        "hidden_sizes": list(HIDDEN_SIZES),
+        "features": features,
+        "hidden_sizes": list(hidden_sizes),
+        "parameter_count": parameter_count,
         "epochs": epochs,
     }
     return model, loss, accuracy
@@ -159,6 +208,7 @@ def save_model(model: dict[str, object], model_dir: Path) -> None:
         "format": MODEL_FORMAT,
         "features": model["features"],
         "hidden_sizes": model["hidden_sizes"],
+        "parameter_count": model["parameter_count"],
         "outputs": model["outputs"],
         "epochs": model["epochs"],
     }
@@ -186,8 +236,9 @@ def load_model(model_dir: Path) -> dict[str, object]:
 def predict(model: dict[str, object], text: str) -> tuple[str, float]:
     weights = model["weights"]
     biases = model["biases"]
+    features = int(model.get("features", FEATURES))
     activations, _ = _forward(  # type: ignore[arg-type]
-        vectorize(text)[None, :], weights, biases  # type: ignore[arg-type]
+        vectorize(text, features)[None, :], weights, biases  # type: ignore[arg-type]
     )
     probabilities = _probabilities(activations[-1])[0]
     index = int(np.argmax(probabilities))

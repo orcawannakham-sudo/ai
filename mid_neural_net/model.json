@@ -16,7 +16,14 @@
     "I reply using the examples in my dataset.",
     "Goodbye!",
     "print(\"Hello, World!\")",
-    "__SEARCH__"
+    "__SEARCH__",
+    "/run ls",
+    "/run pwd",
+    "/run python3 --version",
+    "/run git status --short --branch",
+    "/run df -h",
+    "/run free -h",
+    "I can suggest commands to list files, check your folder, inspect Python or Git, and view disk or memory. I will ask before running one."
   ],
   "epochs": 100
 }

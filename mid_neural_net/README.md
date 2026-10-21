@@ -36,7 +36,7 @@ does not write new sentences. Its displayed NN score is the classifier's softmax
 score, not a calibrated measure that the answer is correct.
 
 If fewer than 80% of the input's words appear together in any one training input,
-or the NN score is below 55%, the runner automatically searches the web and prints
+or the NN score is below 80%, the runner automatically searches the web and prints
 the results and source URLs. It tries DuckDuckGo's HTML and Lite pages, then Bing's
 RSS results if those pages have no readable links. Search results are shown
 directly; no second chat model is used to summarize them, and they are not

@@ -17,7 +17,8 @@ MAX_COMMAND_LENGTH = 2_000
 MAX_ARGUMENTS = 64
 MAX_OUTPUT_LENGTH = 12_000
 MIN_INPUT_WORD_COVERAGE = 0.80
-MIN_NN_SCORE = 0.55
+# Softmax scores are not calibrated; search unless the model is fairly sure.
+MIN_NN_SCORE = 0.80
 SEARCH_ACTION = "__SEARCH__"
 BLOCKED_EXECUTABLES = {"bash", "dash", "fish", "pkexec", "sh", "sudo", "su", "zsh"}
 

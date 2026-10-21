@@ -1,0 +1,71 @@
+# Put one input/output pair per block. Text after '=' is used as written.
+i = hi
+o = Hello!
+
+i = hello
+o = Hi!
+
+i = hey
+o = Hello!
+
+i = good morning
+o = Good morning!
+
+i = how are you?
+o = I'm doing well. How are you?
+
+i = who are you?
+o = I'm Mid AI, a small local neural network.
+
+i = what can you do?
+o = I reply using the examples in my dataset.
+
+i = bye
+o = Goodbye!
+
+i = python helloworld
+o = print("Hello, World!")
+
+i = python hello world
+o = print("Hello, World!")
+
+i = gimme python hello world code
+o = print("Hello, World!")
+
+i = give me python hello world code
+o = print("Hello, World!")
+
+i = hello world python code
+o = print("Hello, World!")
+
+i = write a hello world program in python
+o = print("Hello, World!")
+
+i = show me python hello world
+o = print("Hello, World!")
+
+i = give me python calculator
+o = __SEARCH__
+
+i = give me a python calculator
+o = __SEARCH__
+
+i = python calculator code
+o = __SEARCH__
+
+i = write python calculator
+o = __SEARCH__
+
+i = write me a calculator in python
+o = __SEARCH__
+
+i = make me a python calculator
+o = __SEARCH__
+
+i = code for python calculator
+o = __SEARCH__
+
+i = create a calculator program in python
+o = __SEARCH__
+
+epoch =100

@@ -1,0 +1,22 @@
+{
+  "format": 3,
+  "features": 2048,
+  "hidden_sizes": [
+    8192,
+    8192,
+    4096,
+    619
+  ],
+  "outputs": [
+    "Hello!",
+    "Hi!",
+    "Good morning!",
+    "I'm doing well. How are you?",
+    "I'm Mid AI, a small local neural network.",
+    "I reply using the examples in my dataset.",
+    "Goodbye!",
+    "print(\"Hello, World!\")",
+    "__SEARCH__"
+  ],
+  "epochs": 100
+}
